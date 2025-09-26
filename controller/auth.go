@@ -109,6 +109,7 @@ func (ru *Router) SignIn(w http.ResponseWriter, r *http.Request) {
 	resp := utils.BuildResponse(http.StatusOK, "login successful", rsp, nil)
 	resp.BadResponse(w)
 }
+
 func authResponse(firstName, lastName, email string, id int64) (interface{}, error) {
 	duration := time.Minute * 30
 	token, err := utils.CreateToken(id, duration)
