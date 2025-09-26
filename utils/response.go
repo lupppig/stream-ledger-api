@@ -16,9 +16,9 @@ func BuildResponse(statusCode int, message string, data interface{}, err interfa
 }
 
 func (r Response) BadResponse(w http.ResponseWriter) {
-	SendJSONResponse(w, r)
+	SendJSONResponse(w, r, r.StatusCode)
 }
 
 func (r Response) SuccessResponse(w http.ResponseWriter) {
-	SendJSONResponse(w, r)
+	SendJSONResponse(w, r, r.StatusCode)
 }

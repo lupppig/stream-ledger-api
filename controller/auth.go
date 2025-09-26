@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -21,23 +22,21 @@ func (ru *Router) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		Email     string `json:"email"`
 	}
 	if err := utils.ReadJSONRequest(r, &user); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
 		resp := utils.BuildResponse(http.StatusBadRequest, "invalid request sent", nil, err)
 		resp.BadResponse(w)
 		return
 	}
 
-	// validate user request
-	if utils.CheckValidEmail(user.Email) {
-		w.WriteHeader(http.StatusBadRequest)
+	if !utils.CheckValidEmail(user.Email) {
 		resp := utils.BuildResponse(http.StatusBadRequest, "invalid email provided", nil, nil)
 		resp.BadResponse(w)
+		return
 	}
 
-	if utils.CheckValidPassword(user.Password) {
-		w.WriteHeader(http.StatusBadRequest)
+	if !utils.CheckValidPassword(user.Password) {
 		resp := utils.BuildResponse(http.StatusBadRequest, "password field cannot be empty", nil, nil)
 		resp.BadResponse(w)
+		return
 	}
 
 	usre := &model.User{
@@ -49,16 +48,17 @@ func (ru *Router) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	err := usre.CreateUser(ru.DB)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Println(err.Error())
 		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil)
 		resp.BadResponse(w)
+		return
 	}
 
 	resp, err := authResponse(user.FirstName, user.LastName, user.Email, usre.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil)
 		resp.BadResponse(w)
+		return
 	}
 
 	rsp := utils.BuildResponse(http.StatusCreated, "user account created successfully", resp, nil)
@@ -72,21 +72,18 @@ func (ru *Router) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := utils.ReadJSONRequest(r, &user); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
 		resp := utils.BuildResponse(http.StatusBadRequest, "invalid request sent", nil, err)
 		resp.BadResponse(w)
 		return
 	}
 
-	if utils.CheckValidEmail(user.Email) {
-		w.WriteHeader(http.StatusBadRequest)
+	if !utils.CheckValidEmail(user.Email) {
 		resp := utils.BuildResponse(http.StatusBadRequest, "invalid email provided", nil, nil)
 		resp.BadResponse(w)
 		return
 	}
 
-	if utils.CheckValidPassword(user.Password) {
-		w.WriteHeader(http.StatusBadRequest)
+	if !utils.CheckValidPassword(user.Password) {
 		resp := utils.BuildResponse(http.StatusBadRequest, "password field cannot be empty", nil, nil)
 		resp.BadResponse(w)
 		return
@@ -97,17 +94,16 @@ func (ru *Router) SignIn(w http.ResponseWriter, r *http.Request) {
 	err := usr.GetUser(ru.DB, user.Email, user.Password)
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		resp := utils.BuildResponse(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), nil, err)
+		resp := utils.BuildResponse(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil, err.Error())
 		resp.BadResponse(w)
+		return
 	}
 
 	rsp, err := authResponse(usr.FirstName, usr.LastName, usr.Email, usr.ID)
-
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil)
 		resp.BadResponse(w)
+		return
 	}
 
 	resp := utils.BuildResponse(http.StatusOK, "login successful", rsp, nil)
@@ -116,7 +112,6 @@ func (ru *Router) SignIn(w http.ResponseWriter, r *http.Request) {
 func authResponse(firstName, lastName, email string, id int64) (interface{}, error) {
 	duration := time.Minute * 30
 	token, err := utils.CreateToken(id, duration)
-
 	if err != nil {
 		return nil, err
 	}

@@ -38,8 +38,8 @@ func main() {
 	subr := router.PathPrefix("/api/v1").Subrouter()
 
 	c := controller.Router{DB: db}
-	subr.HandleFunc("/signup", c.RegisterUser)
-	subr.HandleFunc("/login", c.SignIn)
+	subr.HandleFunc("/signup", c.RegisterUser).Methods("POST")
+	subr.HandleFunc("/login", c.SignIn).Methods("POST")
 
 	srv := &http.Server{
 		Handler:      subr,

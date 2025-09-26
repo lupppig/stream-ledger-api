@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
@@ -17,7 +18,6 @@ type User struct {
 	Email         string `bun:",unique"`
 	Password      string
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
-	UpdatedAt     time.Time `bun:",nullzero,default:current_timestamp,updated_at"`
 }
 
 func (u *User) CreateUser(db *postgres.PostgresDB) error {
@@ -29,11 +29,13 @@ func (u *User) CreateUser(db *postgres.PostgresDB) error {
 }
 
 func (u *User) GetUser(db *postgres.PostgresDB, email string, password string) error {
-	query := `where email = ?`
-	if err := db.SelectSingleEntity(query, email, u); err != nil {
+	query := ` email = ?`
+	if err := db.SelectSingleEntity(query, u, email); err != nil {
+		log.Println(err.Error())
 		return fmt.Errorf("invalid email or password provided")
 	}
 
+	fmt.Println(password, u.Password)
 	if !utils.ComparePassword(password, u.Password) {
 		return fmt.Errorf("invalid password or email provided")
 	}

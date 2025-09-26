@@ -14,7 +14,7 @@ func (p *PostgresDB) CreateModel(model interface{}) error {
 		return err
 	}
 
-	if aff, err := res.RowsAffected(); err != nil || aff != 0 {
+	if aff, err := res.RowsAffected(); err != nil || aff == 0 {
 		return fmt.Errorf("no data insert: %w", err)
 	}
 	return nil

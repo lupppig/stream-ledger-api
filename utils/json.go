@@ -13,6 +13,8 @@ func ReadJSONRequest(r *http.Request, model interface{}) error {
 	return nil
 }
 
-func SendJSONResponse(w http.ResponseWriter, model interface{}) {
+func SendJSONResponse(w http.ResponseWriter, model interface{}, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(model)
 }

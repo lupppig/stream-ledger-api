@@ -1,20 +1,20 @@
 
 # Postgres
 POSTGRES_IMAGE=postgres:15
-POSTGRES_CONTAINER=my_postgres
+POSTGRES_CONTAINER=postgres
 POSTGRES_PORT=5432
-POSTGRES_USER=myuser
+POSTGRES_USER=user
 POSTGRES_PASSWORD=mypassword
 POSTGRES_DB=mydb
 
 # Redis
 REDIS_IMAGE=redis:7
-REDIS_CONTAINER=my_redis
+REDIS_CONTAINER=redis
 REDIS_PORT=6379
 
 # Kafka (using Bitnami image for simplicity)
 KAFKA_IMAGE=bitnami/kafka:3.7.0
-KAFKA_CONTAINER=my_kafka
+KAFKA_CONTAINER=kafka
 KAFKA_PORT=9092
 KAFKA_ZK_PORT=2181
 
@@ -35,7 +35,8 @@ postgres-up:
 		-e POSTGRES_DB=$(POSTGRES_DB) \
 		-p $(POSTGRES_PORT):5432 \
 		$(POSTGRES_IMAGE)
-
+psql:
+	docker exec -it postgres psql -U user -d $(POSTGRES_DB)
 postgres-down:
 	docker stop $(POSTGRES_CONTAINER) || true
 
@@ -80,4 +81,5 @@ down: postgres-down redis-down kafka-down
 pull: postgres-pull redis-pull kafka-pull
 restart: down up
 
-run: go run .
+run:
+	go run .
