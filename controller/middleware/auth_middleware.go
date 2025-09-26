@@ -21,6 +21,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 		var tokenStr string
 		fmt.Sscanf(auth, "Bearer %s", &tokenStr)
+		fmt.Println("token str", tokenStr)
 		if tokenStr == "" {
 			http.Error(w, "invalid auth header", http.StatusUnauthorized)
 			return

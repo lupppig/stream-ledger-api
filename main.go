@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/lupppig/stream-ledger-api/controller"
+	"github.com/lupppig/stream-ledger-api/controller/middleware"
 	"github.com/lupppig/stream-ledger-api/model/migrations"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 )
@@ -38,8 +39,11 @@ func main() {
 	subr := router.PathPrefix("/api/v1").Subrouter()
 
 	c := controller.Router{DB: db}
-	subr.HandleFunc("/signup", c.RegisterUser).Methods("POST")
-	subr.HandleFunc("/login", c.SignIn).Methods("POST")
+	subr.HandleFunc("/auth/signup", c.RegisterUser).Methods("POST")
+	subr.HandleFunc("/auth/login", c.SignIn).Methods("POST")
+
+	// transaction routes
+	subr.Handle("/transactions", middleware.AuthMiddleware(http.HandlerFunc(c.CreateTransactions))).Methods("GET")
 
 	srv := &http.Server{
 		Handler:      subr,
