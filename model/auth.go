@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
@@ -30,7 +29,8 @@ type Wallet struct {
 	CreatedAt time.Time `bun:",notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt time.Time `bun:",notnull,default:current_timestamp" json:"updated_at"`
 
-	User *User `bun:"rel:belongs-to,join:user_id=id" json:"user,omitempty"`
+	User         *User          `bun:"rel:belongs-to,join:user_id=id" json:"user,omitempty"`
+	Transactions []*Transaction `bun:"rel:has-many"`
 }
 
 func (u *User) CreateUser(db *postgres.PostgresDB) error {
@@ -72,8 +72,14 @@ func (u *User) GetUser(db *postgres.PostgresDB, email string, password string) e
 func (u *User) GetWallet(db *postgres.PostgresDB, id int64) error {
 	query := `"user".id = ?`
 	if err := db.SelectOneWithRelation(query, "Wallet", u, id); err != nil {
-		log.Println(err.Error())
 		return err
 	}
 	return nil
+}
+
+func (w *Wallet) getWallet(tx bun.Tx, userId int64) error {
+	query := "user_id = ?"
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	return tx.NewSelect().Model(w).Where(query, userId).Scan(ctx)
 }

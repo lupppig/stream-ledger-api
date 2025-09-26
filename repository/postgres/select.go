@@ -17,5 +17,4 @@ func (p *PostgresDB) SelectOneWithRelation(query string, relation string, receiv
 	return p.DB.NewSelect().
 		Model(receiver).
 		Relation(relation).Where(query, args...).Scan(ctx)
-
 }

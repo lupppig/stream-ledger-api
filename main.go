@@ -39,6 +39,7 @@ func main() {
 	subr := router.PathPrefix("/api/v1").Subrouter()
 
 	c := controller.Router{DB: db}
+	// authentication routes
 	subr.HandleFunc("/auth/signup", c.RegisterUser).Methods("POST")
 	subr.HandleFunc("/auth/login", c.SignIn).Methods("POST")
 
