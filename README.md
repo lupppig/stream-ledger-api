@@ -1,6 +1,6 @@
 # StreamLedger API
 
-StreamLedger API is a secure, scalable, and well-tested transactional API for managing user wallets and their transactions. It emphasizes **data integrity**, **idempotency**, and **fault-tolerant operations**.
+StreamLedger API is a secure, scalable, and well-tested transactional API for managing user wallets and their transactions. It emphasizes **data integrity**, **idempotency**.
 
 ---
 
