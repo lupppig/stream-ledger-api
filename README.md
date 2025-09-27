@@ -103,7 +103,7 @@ The objective of this project is to provide a reliable JSON API for managing use
 ### Prerequisites
 
 * Go 1.22+
-* Docker
+* Docker <!--> optional can be setup locally <-->
 * Make
 
 ---
