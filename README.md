@@ -9,8 +9,7 @@ StreamLedger API is a secure, scalable, and well-tested transactional API for ma
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/lupppig/stream-ledger-api.git
-cd stream-ledger-api
+git clone https://github.com/lupppig/stream-ledger-api.git && cd stream-ledger-api
 ```
 
 2. Copy environment configuration:
@@ -68,7 +67,7 @@ The objective of this project is to provide a reliable JSON API for managing use
    * `GET /api/v1/wallet`: Retrieve authenticated user wallet details.
    * `POST /api/v1/transactions`: Create a new transaction (credit/debit). Prevents negative balances.
    * `GET /api/v1/transactions`: List user transactions with pagination.
-   * `POST /api/v1/transactions/export`: Export transaction history to Excel asynchronously via RiverQueue.
+   * `POST /api/v1/transactions/export`: Export transaction history to Excel asynchronously via RiverQueue. and logs the file path to STDOUT
 
 3. **Transaction Guarantees**
 
