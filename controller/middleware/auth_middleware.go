@@ -16,7 +16,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if auth == "" {
-			resp := utils.BuildResponse(http.StatusUnauthorized, "missing auth header", nil, nil)
+			resp := utils.BuildResponse(http.StatusUnauthorized, "missing auth header", nil, nil, nil)
 			resp.BadResponse(w)
 			return
 		}
@@ -24,14 +24,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		var tokenStr string
 		fmt.Sscanf(auth, "Bearer %s", &tokenStr)
 		if tokenStr == "" {
-			resp := utils.BuildResponse(http.StatusUnauthorized, "invalid auth header", nil, nil)
+			resp := utils.BuildResponse(http.StatusUnauthorized, "invalid auth header", nil, nil, nil)
 			resp.BadResponse(w)
 			return
 		}
 
 		claims, err := utils.ParseToken(tokenStr)
 		if err != nil {
-			resp := utils.BuildResponse(http.StatusUnauthorized, "invalid token", nil, err.Error())
+			resp := utils.BuildResponse(http.StatusUnauthorized, "invalid token", nil, err.Error(), nil)
 			resp.BadResponse(w)
 			return
 		}

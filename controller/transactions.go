@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -13,7 +14,7 @@ import (
 func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 	id, ok := r.Context().Value(middleware.ContextKeyUserID).(int64)
 	if !ok {
-		resp := utils.BuildResponse(http.StatusUnauthorized, "unauthorized user", nil, nil)
+		resp := utils.BuildResponse(http.StatusUnauthorized, "unauthorized user", nil, nil, nil)
 		resp.BadResponse(w)
 		return
 	}
@@ -24,7 +25,7 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 		TransID string `json:"trans_id"`
 	}
 	if err := utils.ReadJSONRequest(r, &transaction); err != nil {
-		resp := utils.BuildResponse(http.StatusBadRequest, "invalid request sent", nil, err)
+		resp := utils.BuildResponse(http.StatusBadRequest, "invalid request sent", nil, err.Error(), nil)
 		resp.BadResponse(w)
 		return
 	}
@@ -37,18 +38,18 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 
 	if err := trx.CreateTransaction(ru.DB, id); err != nil {
 		if errors.Is(err, model.ErrorInsuffcientBalance) {
-			resp := utils.BuildResponse(http.StatusBadRequest, "cannot debit wallet: balance is too low", nil, err.Error())
+			resp := utils.BuildResponse(http.StatusBadRequest, "cannot debit wallet: balance is too low", nil, err.Error(), nil)
 			resp.BadResponse(w)
 			return
 		}
 		if errors.Is(err, model.ErrorDuplicateTransaction) {
-			resp := utils.BuildResponse(http.StatusConflict, "duplicate transaction entry", nil, err.Error())
+			resp := utils.BuildResponse(http.StatusConflict, "duplicate transaction entry", nil, err.Error(), nil)
 			resp.BadResponse(w)
 			return
 		}
 
 		log.Println(err.Error())
-		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil)
+		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil, nil)
 		resp.BadResponse(w)
 		return
 	}
@@ -66,6 +67,55 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 		Amount:        trx.Amount,
 		Balance:       trx.Wallet.Balance,
 	}
-	resp := utils.BuildResponse(http.StatusOK, "transaction successfully", resData, nil)
+	resp := utils.BuildResponse(http.StatusOK, "transaction successfully", resData, nil, nil)
+	resp.SuccessResponse(w)
+}
+
+func (ru *Router) ListUserTransactions(w http.ResponseWriter, r *http.Request) {
+	id, ok := r.Context().Value(middleware.ContextKeyUserID).(int64)
+	if !ok {
+		resp := utils.BuildResponse(http.StatusUnauthorized, "unauthorized user", nil, nil, nil)
+		resp.BadResponse(w)
+		return
+	}
+	pagination := utils.GetPagination(r)
+	trx := model.Transaction{}
+	transactions, total, err := trx.GetUserTransaction(ru.DB, id, pagination)
+
+	if err != nil {
+		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil, nil)
+		resp.BadResponse(w)
+		return
+	}
+
+	q := r.URL.Query()
+	nextPage := ""
+	prevPage := ""
+
+	if pagination.Offset+pagination.Limit < total {
+		q.Set("page", fmt.Sprintf("%d", pagination.Page+1))
+		nextPage = fmt.Sprintf("%s?%s", r.URL.Path, q.Encode())
+	}
+
+	if pagination.Page > 1 {
+		q.Set("page", fmt.Sprintf("%d", pagination.Page-1))
+		prevPage = fmt.Sprintf("%s?%s", r.URL.Path, q.Encode())
+	}
+
+	var pagin = struct {
+		Page     int    `json:"page"`
+		Limit    int    `limit:"limit"`
+		Total    int    `total:"total"`
+		NextPage string `json:"next_page"`
+		PrevPage string `json:"prev_page"`
+	}{
+		Page:     pagination.Page,
+		Limit:    pagination.Limit,
+		Total:    total,
+		NextPage: nextPage,
+		PrevPage: prevPage,
+	}
+
+	resp := utils.BuildResponse(http.StatusOK, "user transactions list", transactions, nil, pagin)
 	resp.SuccessResponse(w)
 }

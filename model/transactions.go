@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
+	"github.com/lupppig/stream-ledger-api/utils"
 	"github.com/uptrace/bun"
 )
 
@@ -15,13 +16,13 @@ var ErrorInsuffcientBalance = errors.New("insufficient balance")
 var ErrorDuplicateTransaction = errors.New("duplicate transaction")
 
 type Transaction struct {
-	ID        int64     `bun:",pk,autoincrement"`
-	WalletID  int64     `bun:"column:wallet_id,notnull"`
-	Entry     string    `bun:"type:transaction_entry,notnull"` // credit or debit
-	Amount    int64     `bun:",notnull"`                       // in kobo
-	TransID   string    `bun:",unique"`
-	CreatedAt time.Time `bun:",nullzero,default:current_timestamp"`
-	Wallet    *Wallet   `bun:"rel:belongs-to,join:wallet_id=id"`
+	ID        int64     `bun:",pk,autoincrement" json:"transaction_id"`
+	WalletID  int64     `bun:"column:wallet_id,notnull" json:"wallet_id"`
+	Entry     string    `bun:"type:transaction_entry,notnull" json:"entry"` // credit or debit
+	Amount    int64     `bun:",notnull" json:"amount"`                      // in kobo
+	TransID   string    `bun:",unique" json:"trans_id"`
+	CreatedAt time.Time `bun:",nullzero,default:current_timestamp" json:"created_at"`
+	Wallet    *Wallet   `bun:"rel:belongs-to,join:wallet_id=id" json:"-"`
 }
 
 func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) error {
@@ -30,7 +31,6 @@ func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) e
 	return db.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		// check if transaction exist to prevent duplicate transaction
 		existing := new(Transaction)
-		fmt.Println(t.TransID)
 		err := tx.NewSelect().
 			Model(existing).
 			Where("trans_id = ?", t.TransID).
@@ -39,7 +39,7 @@ func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) e
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		} else if err == nil {
-			return fmt.Errorf("duplicate transaction")
+			return ErrorDuplicateTransaction
 		}
 
 		var wallet = &Wallet{}
@@ -82,4 +82,38 @@ func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) e
 		return nil
 	})
 
+}
+
+func (t *Transaction) GetUserTransaction(db *postgres.PostgresDB, userId int64, pagination utils.Pagination) ([]*Transaction, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var total int
+	var transactions []*Transaction
+	var err error
+
+	total, err = db.DB.NewSelect().
+		Model(t).
+		Join(`JOIN wallets w ON "w".id = transaction.wallet_id`).
+		Where(`w.user_id = ?`, userId).
+		Count(ctx)
+
+	if err != nil {
+		log.Println(err.Error())
+		return nil, 0, err
+	}
+
+	err = db.DB.NewSelect().
+		Model(&transactions).
+		Relation("Wallet"). // Eager load wallet
+		Where("wallet.user_id = ?", userId).
+		Order("transaction.created_at DESC").
+		Limit(pagination.Limit).
+		Offset(pagination.Offset).
+		Scan(ctx)
+	if err != nil {
+		log.Println(err.Error())
+		return nil, 0, err
+	}
+	return transactions, total, nil
 }

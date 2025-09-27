@@ -46,6 +46,7 @@ func main() {
 	// transaction routes & wallet routes
 	subr.Handle("/wallet", middleware.AuthMiddleware(http.HandlerFunc(c.GetWallet))).Methods("GET")
 	subr.Handle("/transactions", middleware.AuthMiddleware(http.HandlerFunc(c.CreateTransactions))).Methods("POST")
+	subr.Handle("/transactions", middleware.AuthMiddleware(http.HandlerFunc(c.ListUserTransactions))).Methods("GET")
 
 	srv := &http.Server{
 		Handler:      subr,
