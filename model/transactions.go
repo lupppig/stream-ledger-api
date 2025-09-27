@@ -117,3 +117,16 @@ func (t *Transaction) GetUserTransaction(db *postgres.PostgresDB, userId int64, 
 	}
 	return transactions, total, nil
 }
+
+func FetchUserTransactions(ctx context.Context, db *postgres.PostgresDB, userId int64) ([]Transaction, error) {
+	var transactions []Transaction
+
+	err := db.DB.NewSelect().
+		Model(&transactions).
+		Relation("Wallet"). // Eager load wallet
+		Where("wallet.user_id = ?", userId).
+		Order("transaction.created_at DESC").
+		Scan(ctx)
+
+	return transactions, err
+}

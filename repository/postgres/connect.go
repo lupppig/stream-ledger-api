@@ -2,16 +2,20 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/riverqueue/river"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 )
 
 type PostgresDB struct {
-	DB *bun.DB
+	DB    *bun.DB
+	River *river.Client[*sql.Tx]
 }
 
 func Connect(connString string) (*PostgresDB, error) {
@@ -35,6 +39,7 @@ func Connect(connString string) (*PostgresDB, error) {
 	if err := db.PingContext(ctx); err != nil {
 		return nil, err
 	}
+	log.Println("Database connected successfully")
 	return NewPostgresDB(db), nil
 }
 

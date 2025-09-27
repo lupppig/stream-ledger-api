@@ -83,3 +83,12 @@ func (w *Wallet) getWallet(tx bun.Tx, userId int64) error {
 	defer cancel()
 	return tx.NewSelect().Model(w).Where(query, userId).Scan(ctx)
 }
+
+func GetUser(db *postgres.PostgresDB, id int64) (*User, error) {
+	query := `id = ?`
+	var user = &User{}
+	if err := db.SelectSingleEntity(query, user, id); err != nil {
+		return nil, err
+	}
+	return user, nil
+}

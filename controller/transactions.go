@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/lupppig/stream-ledger-api/controller/middleware"
+	"github.com/lupppig/stream-ledger-api/jobs"
 	"github.com/lupppig/stream-ledger-api/model"
 	"github.com/lupppig/stream-ledger-api/utils"
 )
@@ -118,4 +119,37 @@ func (ru *Router) ListUserTransactions(w http.ResponseWriter, r *http.Request) {
 
 	resp := utils.BuildResponse(http.StatusOK, "user transactions list", transactions, nil, pagin)
 	resp.SuccessResponse(w)
+}
+
+func (ru *Router) ExportTransaction(w http.ResponseWriter, r *http.Request) {
+	id, ok := r.Context().Value(middleware.ContextKeyUserID).(int64)
+	if !ok {
+		resp := utils.BuildResponse(http.StatusUnauthorized, "unauthorized user", nil, nil, nil)
+		resp.BadResponse(w)
+		return
+	}
+
+	user, err := model.GetUser(ru.DB, id)
+	if err != nil {
+		log.Println(err.Error())
+		resp := utils.BuildResponse(http.StatusNotFound, "user not found", nil, nil, nil)
+		resp.BadResponse(w)
+		return
+	}
+
+	jbArg := jobs.ExportTransactionsArgs{
+		UserID: user.ID,
+		Email:  user.Email,
+	}
+
+	_, err = ru.DB.River.Insert(r.Context(), jbArg, nil)
+
+	if err != nil {
+		log.Println(err.Error())
+		resp := utils.BuildResponse(http.StatusInternalServerError, "failed to queue export job", nil, nil, nil)
+		resp.BadResponse(w)
+	}
+
+	rsp := utils.BuildResponse(http.StatusAccepted, "Export Job Dispatch successfully", nil, nil, nil)
+	rsp.SuccessResponse(w)
 }
