@@ -6,15 +6,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lupppig/stream-ledger-api/controller"
 	"github.com/lupppig/stream-ledger-api/controller/middleware"
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 )
 
-func Router(db *postgres.PostgresDB) *mux.Router {
+func Router(db *postgres.PostgresDB, prod *kafka.Producer) *mux.Router {
 	router := mux.NewRouter()
 	subr := router.PathPrefix("/api/v1").Subrouter()
 	subr.Use(middleware.LoggingMiddleware)
 
-	c := controller.Router{DB: db}
+	c := controller.Router{DB: db, Prod: prod}
 	// authentication routes
 	subr.HandleFunc("/auth/signup", c.RegisterUser).Methods("POST")
 	subr.HandleFunc("/auth/login", c.SignIn).Methods("POST")

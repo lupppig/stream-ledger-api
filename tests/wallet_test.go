@@ -7,17 +7,26 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/router"
 )
 
 type loginResponse struct {
-	AccessToken string `json:"access_token"`
+	Data struct {
+		AccessToken struct {
+			Token string `json:"token"`
+		} `json:"access_token"`
+	} `json:"data"`
 }
 
 type walletResponse struct {
-	WalletID int64  `json:"wallet_id"`
-	Balance  int64  `json:"balance"`
-	Currency string `json:"currency"`
+	Data struct {
+		Wallet struct {
+			WalletID int64  `json:"wallet_id"`
+			Balance  int64  `json:"balance"`
+			Currency string `json:"currency"`
+		} `json:"wallet"`
+	} `json:"data"`
 }
 
 func createAndLoginUser(router http.Handler, t *testing.T) string {
@@ -28,7 +37,7 @@ func createAndLoginUser(router http.Handler, t *testing.T) string {
 	router.ServeHTTP(rrSignup, reqSignup)
 
 	if rrSignup.Code != http.StatusCreated {
-		t.Fatalf("failed to create test user, got %d", rrSignup.Code)
+		t.Fatalf("failed to create test user, got %d\n", rrSignup.Code)
 	}
 
 	login := `{"email":"wallet@example.com","password":"secret"}`
@@ -38,23 +47,27 @@ func createAndLoginUser(router http.Handler, t *testing.T) string {
 	router.ServeHTTP(rrLogin, reqLogin)
 
 	if rrLogin.Code != http.StatusOK {
-		t.Fatalf("failed to login test user, got %d", rrLogin.Code)
+		t.Fatalf("failed to login test user, got %d\n", rrLogin.Code)
 	}
 
 	var lr loginResponse
 	if err := json.Unmarshal(rrLogin.Body.Bytes(), &lr); err != nil {
-		t.Fatalf("failed to decode login response: %v", err)
+		t.Logf("%s", rrLogin.Body.String())
+		t.Fatalf("failed to decode login response: %v\n", err)
 	}
 
-	if lr.AccessToken == "" {
-		t.Fatal("expected access token, got empty string")
+	if lr.Data.AccessToken.Token == "" {
+		t.Fatal("expected access token, got empty string\n")
 	}
 
-	return lr.AccessToken
+	return lr.Data.AccessToken.Token
 }
 
 func TestGetWallet(t *testing.T) {
-	router := router.Router(pdb)
+	pdb, mockProducer := SetupTestDB(t)
+
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	router := router.Router(pdb, prod)
 
 	token := createAndLoginUser(router, t)
 
@@ -70,10 +83,10 @@ func TestGetWallet(t *testing.T) {
 
 	var wr walletResponse
 	if err := json.Unmarshal(rr.Body.Bytes(), &wr); err != nil {
-		t.Fatalf("failed to decode wallet response: %v", err)
+		t.Fatalf("failed to decode wallet response: %v\n", err)
 	}
 
-	if wr.Currency != "NGN" {
-		t.Errorf("expected NGN as default currency, got %s", wr.Currency)
+	if wr.Data.Wallet.Currency != "NGN" {
+		t.Errorf("expected NGN as default currency, got %s\n", wr.Data.Wallet.Currency)
 	}
 }

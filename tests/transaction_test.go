@@ -8,11 +8,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/router"
 )
 
 func TestConcurrentTransactions(t *testing.T) {
-	router := router.Router(pdb)
+	pdb, mockProducer := SetupTestDB(t)
+
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	router := router.Router(pdb, prod)
 
 	token := createAndLoginUser(router, t)
 
@@ -48,7 +52,7 @@ func TestConcurrentTransactions(t *testing.T) {
 
 	var success, failure int
 	for code := range results {
-		if code == http.StatusCreated {
+		if code == http.StatusOK {
 			success++
 		} else {
 			failure++
@@ -56,7 +60,7 @@ func TestConcurrentTransactions(t *testing.T) {
 	}
 
 	if success == 0 {
-		t.Fatal("expected at least one successful transaction, got none")
+		t.Fatal("expected at least one successful transaction, got none\n")
 	}
 
 	reqWallet, _ := http.NewRequest("GET", "/api/v1/wallet", nil)
@@ -66,16 +70,16 @@ func TestConcurrentTransactions(t *testing.T) {
 	router.ServeHTTP(rrWallet, reqWallet)
 
 	if rrWallet.Code != http.StatusOK {
-		t.Fatalf("expected 200 when fetching wallet, got %d", rrWallet.Code)
+		t.Fatalf("expected 200 when fetching wallet, got %d\n", rrWallet.Code)
 	}
 
 	var wr walletResponse
 	if err := json.Unmarshal(rrWallet.Body.Bytes(), &wr); err != nil {
-		t.Fatalf("failed to decode wallet response: %v", err)
+		t.Fatalf("failed to decode wallet response: %v\n", err)
 	}
 
-	if wr.Balance < 0 {
-		t.Fatalf("wallet balance went negative: %d", wr.Balance)
+	if wr.Data.Wallet.Balance < 0 {
+		t.Fatalf("wallet balance went negative: %d\n", wr.Data.Wallet.Balance)
 	}
 }
 
@@ -84,7 +88,7 @@ type transactionsResponse struct {
 		TransactionID int64  `json:"transaction_id"`
 		Entry         string `json:"entry"`
 		Amount        int64  `json:"amount"`
-	} `json:"transactions"`
+	} `json:"data"`
 	Page       int `json:"page"`
 	TotalPages int `json:"total_pages"`
 }
@@ -107,14 +111,17 @@ func seedTransactions(router http.Handler, token string, t *testing.T) {
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusCreated {
+		if rr.Code != http.StatusOK {
 			t.Fatalf("failed to create transaction, got %d", rr.Code)
 		}
 	}
 }
 
 func TestGetTransactions(t *testing.T) {
-	router := router.Router(pdb)
+	pdb, mockProducer := SetupTestDB(t)
+
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	router := router.Router(pdb, prod)
 
 	token := createAndLoginUser(router, t)
 
@@ -156,5 +163,3 @@ func TestGetTransactions(t *testing.T) {
 		t.Error("expected at least one debit transaction, found none")
 	}
 }
-
-

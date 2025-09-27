@@ -3,7 +3,9 @@ module github.com/lupppig/stream-ledger-api
 go 1.25.1
 
 require (
+	github.com/IBM/sarama v1.46.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
@@ -16,7 +18,6 @@ require (
 )
 
 require (
-	github.com/IBM/sarama v1.46.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect

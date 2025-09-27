@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 	"github.com/lupppig/stream-ledger-api/utils"
 	"github.com/uptrace/bun"
@@ -28,22 +29,34 @@ type Transaction struct {
 func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	return db.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		// check if transaction exist to prevent duplicate transaction
-		existing := new(Transaction)
-		err := tx.NewSelect().
-			Model(existing).
-			Where("trans_id = ?", t.TransID).
-			Scan(ctx)
 
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		} else if err == nil {
-			return ErrorDuplicateTransaction
+	// generate a transID if client didn't provide one
+	if t.TransID == "" {
+		t.TransID = uuid.New().String()
+	}
+
+	return db.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if t.TransID != "" {
+			existing := new(Transaction)
+			err := tx.NewSelect().
+				Model(existing).
+				Where("trans_id = ?", t.TransID).
+				Scan(ctx)
+
+			if err == nil {
+				return ErrorDuplicateTransaction
+			} else if !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
 		}
 
-		var wallet = &Wallet{}
-		if err := wallet.getWallet(tx, userId); err != nil {
+		wallet := new(Wallet)
+		err := tx.NewSelect().
+			Model(wallet).
+			Where("user_id = ?", userId).
+			For("UPDATE").
+			Scan(ctx)
+		if err != nil {
 			return err
 		}
 
@@ -53,17 +66,19 @@ func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) e
 
 		if t.Entry == "credit" {
 			_, err := tx.NewRaw(`
-			UPDATE wallets 
-			SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP
-			WHERE id = ?`, t.Amount, wallet.ID).Exec(ctx)
+				UPDATE wallets
+				SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP
+				WHERE id = ?`,
+				t.Amount, wallet.ID).Exec(ctx)
 			if err != nil {
 				return err
 			}
 		} else {
 			res, err := tx.NewRaw(`
-			UPDATE wallets 
-			SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP
-			WHERE id = ? AND balance >= ?`, t.Amount, wallet.ID, t.Amount).Exec(ctx)
+				UPDATE wallets
+				SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP
+				WHERE id = ? AND balance >= ?`,
+				t.Amount, wallet.ID, t.Amount).Exec(ctx)
 			if err != nil {
 				return err
 			}
@@ -74,14 +89,13 @@ func (t *Transaction) CreateTransaction(db *postgres.PostgresDB, userId int64) e
 
 		t.WalletID = wallet.ID
 		t.Wallet = wallet
-		if _, err := tx.NewInsert().
-			Model(t).
-			Exec(ctx); err != nil {
+		_, err = tx.NewInsert().Model(t).Exec(ctx)
+		if err != nil {
 			return err
 		}
+
 		return nil
 	})
-
 }
 
 func (t *Transaction) GetUserTransaction(db *postgres.PostgresDB, userId int64, pagination utils.Pagination) ([]*Transaction, int, error) {

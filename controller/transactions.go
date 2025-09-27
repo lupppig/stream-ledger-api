@@ -9,6 +9,7 @@ import (
 	"github.com/lupppig/stream-ledger-api/controller/middleware"
 	"github.com/lupppig/stream-ledger-api/jobs"
 	"github.com/lupppig/stream-ledger-api/model"
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/utils"
 )
 
@@ -54,6 +55,15 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 		resp.BadResponse(w)
 		return
 	}
+
+	trans := kafka.TransactionEvent{
+		UserID:  id,
+		Entry:   trx.Entry,
+		Amount:  trx.Amount,
+		Balance: trx.Wallet.Balance,
+	}
+
+	go ru.Prod.PublishTransaction(trans)
 
 	var resData = struct {
 		TransactionID int64  `json:"transaction_id"`

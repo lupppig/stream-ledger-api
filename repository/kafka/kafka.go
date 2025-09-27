@@ -23,11 +23,14 @@ type TransactionEvent struct {
 
 func ConnectKafka(brokersUrl ...string) (*Producer, error) {
 	config := sarama.NewConfig()
+	config.Producer.Idempotent = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Retry.Max = 5
+	config.Net.MaxOpenRequests = 1
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
 	config.Producer.Idempotent = true
+	config.Version = sarama.V2_6_0_0
 
 	producer, err := sarama.NewAsyncProducer(brokersUrl, config)
 

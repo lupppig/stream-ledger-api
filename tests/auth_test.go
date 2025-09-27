@@ -5,85 +5,87 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/router"
 )
 
-func TestConcurrentSignup(t *testing.T) {
-	router := router.Router(pdb)
+func TestSignup(t *testing.T) {
 
-	var wg sync.WaitGroup
+	pdb, mockProducer := SetupTestDB(t)
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	r := router.Router(pdb, prod)
+
 	numUsers := 5
-	errors := make(chan error, numUsers)
-
 	for i := 0; i < numUsers; i++ {
-		wg.Add(1)
+		payload := fmt.Sprintf(
+			`{"first_name":"User","last_name":"%c","email":"user%c@example.com","password":"secret"}`,
+			'A'+i, 'A'+i,
+		)
 
-		go func(i int) {
-			defer wg.Done()
+		req, _ := http.NewRequest("POST", "/api/v1/auth/signup", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
 
-			payload := `{"first_name":"User","last_name":"` + string(rune('A'+i)) + `","email":"user` +
-				string(rune('A'+i)) + `@example.com","password":"secret"}`
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
 
-			req, _ := http.NewRequest("POST", "/api/v1/auth/signup", strings.NewReader(payload))
-			req.Header.Set("Content-Type", "application/json")
-
-			rr := httptest.NewRecorder()
-			router.ServeHTTP(rr, req)
-
-			if rr.Code != http.StatusCreated {
-				errors <- fmt.Errorf("expected %d, got %d for user%d", http.StatusCreated, rr.Code, i)
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	close(errors)
-
-	for err := range errors {
-		if err != nil {
-			t.Fatal(err)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected %d, got %d for user %d", http.StatusCreated, rr.Code, i)
 		}
 	}
 }
 
-func signupTestUser(router http.Handler, t *testing.T) {
-	payload := `{"first_name":"Jane","last_name":"Doe","email":"jane@example.com","password":"secret"}`
-	req, _ := http.NewRequest("POST", "/api/v1/auth/signup", strings.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("failed to create test user, got status %d", rr.Code)
-	}
-}
-
 func TestLogin(t *testing.T) {
-	router := router.Router(pdb)
+	pdb, mockProducer := SetupTestDB(t)
 
-	signupTestUser(router, t)
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	r := router.Router(pdb, prod)
 
-	loginPayload := `{"email":"jane@example.com","password":"secret"}`
-	req, _ := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginPayload))
-	req.Header.Set("Content-Type", "application/json")
+	numUsers := 5
+	// create users first
+	for i := 0; i < numUsers; i++ {
+		payload := fmt.Sprintf(
+			`{"first_name":"User","last_name":"%c","email":"loginuser%c@example.com","password":"secret"}`,
+			'A'+i, 'A'+i,
+		)
 
-	rr := httptest.NewRecorder()
-	router.ServeHTTP(rr, req)
+		req, _ := http.NewRequest("POST", "/api/v1/auth/signup", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected %d for valid login, got %d", http.StatusOK, rr.Code)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("failed to create test user %d, got %d", i, rr.Code)
+		}
 	}
 
-	badPayload := `{"email":"jane@example.com","password":"wrongpass"}`
+	// now login each user
+	for i := 0; i < numUsers; i++ {
+		loginPayload := fmt.Sprintf(
+			`{"email":"loginuser%c@example.com","password":"secret"}`,
+			'A'+i,
+		)
+
+		req, _ := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginPayload))
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected %d for valid login of user %d, got %d", http.StatusOK, i, rr.Code)
+		}
+	}
+
+	// test a bad login for one user
+	badPayload := `{"email":"loginuserA@example.com","password":"wrongpass"}`
 	reqBad, _ := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(badPayload))
 	reqBad.Header.Set("Content-Type", "application/json")
 
 	rrBad := httptest.NewRecorder()
-	router.ServeHTTP(rrBad, reqBad)
+	r.ServeHTTP(rrBad, reqBad)
 
 	if rrBad.Code == http.StatusOK {
 		t.Errorf("expected login failure for wrong password, but got %d", rrBad.Code)

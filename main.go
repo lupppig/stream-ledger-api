@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/lupppig/stream-ledger-api/jobs"
 	"github.com/lupppig/stream-ledger-api/model/migrations"
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 	"github.com/lupppig/stream-ledger-api/router"
 	"github.com/riverqueue/river"
@@ -23,27 +24,31 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("failed to load env variables: %v", err)
 	}
-
 	connString := os.Getenv("DB_URL")
 	portStr := os.Getenv("PORT")
+	if portStr == "" {
+		portStr = "8080"
+	}
 	port, _ := strconv.Atoi(portStr)
-
 	db, err := postgres.Connect(connString)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-
 	if err := setupRiver(db); err != nil {
 		log.Printf("error setting up river: %v", err)
 	}
-
 	// run database migrations
 	if err := migrations.RunMigrations(db.DB); err != nil {
 		log.Printf("failed to perform migrations: %v", err)
 	}
+	// kafka setup
+	brokers := []string{"127.0.0.1:9092"}
+	prod, err := kafka.ConnectKafka(brokers...)
 
-	subr := router.Router(db)
-
+	if err != nil {
+		log.Printf("failed to connect to kafka: %v", err)
+	}
+	subr := router.Router(db, prod)
 	srv := &http.Server{
 		Handler:      subr,
 		Addr:         fmt.Sprintf(":%d", port),

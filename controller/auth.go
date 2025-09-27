@@ -1,17 +1,19 @@
 package controller
 
 import (
-	"log"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/lupppig/stream-ledger-api/model"
+	"github.com/lupppig/stream-ledger-api/repository/kafka"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 	"github.com/lupppig/stream-ledger-api/utils"
 )
 
 type Router struct {
-	DB *postgres.PostgresDB
+	DB   *postgres.PostgresDB
+	Prod *kafka.Producer
 }
 
 func (ru *Router) RegisterUser(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +50,11 @@ func (ru *Router) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	err := usre.CreateUser(ru.DB)
 	if err != nil {
-		log.Println(err.Error())
+		if errors.Is(err, postgres.ErrorDuplicateEmail) {
+			resp := utils.BuildResponse(http.StatusBadRequest, "email already exists", nil, nil, nil)
+			resp.BadResponse(w)
+			return
+		}
 		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil, nil)
 		resp.BadResponse(w)
 		return
