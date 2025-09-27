@@ -40,20 +40,21 @@ psql:
 postgres-down:
 	docker stop $(POSTGRES_CONTAINER) || true
 
-# ==============================
-# Redis
-# ==============================
-redis-pull:
-	docker pull $(REDIS_IMAGE)
+postgres-test:
+	docker run --rm -d \
+		--name $(POSTGRES_CONTAINER) \
+		-e POSTGRES_USER=$(POSTGRES_USER) \
+		-e POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) \
+		-e POSTGRES_DB=$(POSTGRES_DB) \
+		-p $(POSTGRES_PORT):5432 \
+		postgres:15
 
-redis-up:
-	docker run -d --rm \
-		--name $(REDIS_CONTAINER) \
-		-p $(REDIS_PORT):6379 \
-		$(REDIS_IMAGE)
+# Stop the test Postgres container
+postgres-test-down:
+	docker stop $(POSTGRES_CONTAINER)
 
-redis-down:
-	docker stop $(REDIS_CONTAINER) || true
+postgres-test-url:
+	@echo "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable"
 
 # ==============================
 # Kafka
@@ -76,10 +77,13 @@ kafka-down:
 # ==============================
 # Convenience
 # ==============================
-up: postgres-up redis-up kafka-up
-down: postgres-down redis-down kafka-down
-pull: postgres-pull redis-pull kafka-pull
+up: postgres-up kafka-up
+down: postgres-down  kafka-down
+pull: postgres-pull kafka-pull
 restart: down up
 
 run:
 	go run .
+
+test: postgres-test
+	go test ./tests/... -v -count=1
