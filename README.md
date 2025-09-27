@@ -19,16 +19,11 @@ cd stream-ledger-api
 cp .env.example .env
 ```
 
-3. Pull Docker images for Postgres and Kafka:
+3. run Postgres and Kafka:
 
 ```bash
-make pull
-```
-
-4. Start Postgres and Kafka:
-
-```bash
-make up
+make kafka-up
+make postgres-up
 ```
 
 5. Run the API:
