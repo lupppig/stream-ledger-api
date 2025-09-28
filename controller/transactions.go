@@ -70,13 +70,11 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 		WalletID      int64  `json:"wallet_id"`
 		Entry         string `json:"entry"`
 		Amount        int64  `json:"amount"`
-		Balance       int64  `json:"balance"`
 	}{
 		TransactionID: trx.ID,
 		WalletID:      trx.WalletID,
 		Entry:         trx.Entry,
 		Amount:        trx.Amount,
-		Balance:       trx.Wallet.Balance,
 	}
 	resp := utils.BuildResponse(http.StatusOK, "transaction successfully", resData, nil, nil)
 	resp.SuccessResponse(w)
@@ -160,6 +158,6 @@ func (ru *Router) ExportTransaction(w http.ResponseWriter, r *http.Request) {
 		resp.BadResponse(w)
 	}
 
-	rsp := utils.BuildResponse(http.StatusAccepted, "Export Job Dispatch successfully", nil, nil, nil)
+	rsp := utils.BuildResponse(http.StatusOK, "your transaction data has been successfully exported to Excel", nil, nil, nil)
 	rsp.SuccessResponse(w)
 }

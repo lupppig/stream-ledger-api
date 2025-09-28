@@ -74,8 +74,10 @@ NETWORK_NAME = kafka-network
 
 kafka-up:
 	# Create Docker network
-	docker network create $(NETWORK_NAME) || true
-	
+	if [ -z "$$(docker network ls --filter name=$(NETWORK_NAME) -q)" ]; then \
+		docker network create $(NETWORK_NAME); \
+	fi
+
 	# Start Zookeeper
 	docker run -d --rm \
 		--name $(ZOOKEEPER_CONTAINER) \

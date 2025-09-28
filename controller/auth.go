@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -55,6 +56,7 @@ func (ru *Router) RegisterUser(w http.ResponseWriter, r *http.Request) {
 			resp.BadResponse(w)
 			return
 		}
+		log.Println(err.Error())
 		resp := utils.BuildResponse(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, nil, nil)
 		resp.BadResponse(w)
 		return

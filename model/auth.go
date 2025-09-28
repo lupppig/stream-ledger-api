@@ -2,9 +2,12 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lupppig/stream-ledger-api/repository/postgres"
 	"github.com/lupppig/stream-ledger-api/utils"
 	"github.com/uptrace/bun"
@@ -30,7 +33,7 @@ type Wallet struct {
 	UpdatedAt time.Time `bun:",notnull,default:current_timestamp" json:"updated_at"`
 
 	User         *User          `bun:"rel:belongs-to,join:user_id=id" json:"user,omitempty"`
-	Transactions []*Transaction `bun:"rel:has-many"`
+	Transactions []*Transaction `bun:"rel:has-many" json:"-"`
 }
 
 func (u *User) CreateUser(db *postgres.PostgresDB) error {
@@ -39,6 +42,12 @@ func (u *User) CreateUser(db *postgres.PostgresDB) error {
 	err := db.DB.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		u.Password = utils.HashPassword(u.Password)
 		if _, err := tx.NewInsert().Model(u).Returning("*").Exec(ctx); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.Code == pgerrcode.UniqueViolation {
+					return postgres.ErrorDuplicateEmail
+				}
+			}
 			return err
 		}
 		wallet := &Wallet{

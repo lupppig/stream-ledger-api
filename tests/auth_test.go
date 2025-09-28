@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +35,54 @@ func TestSignup(t *testing.T) {
 		if rr.Code != http.StatusCreated {
 			t.Fatalf("expected %d, got %d for user %d", http.StatusCreated, rr.Code, i)
 		}
+	}
+}
+
+func TestCreateUser_DuplicateEmail(t *testing.T) {
+	// Initialize router
+	pdb, mockProducer := SetupTestDB(t)
+	prod := &kafka.Producer{Prod: mockProducer, Topic: "transaction"}
+	router := router.Router(pdb, prod)
+
+	user := map[string]string{
+		"email":      "duplicate@example.com",
+		"password":   "StrongPass123",
+		"first_name": "Alice",
+		"last_name":  "Smith",
+	}
+
+	body, _ := json.Marshal(user)
+
+	req1 := httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewReader(body))
+	req1.Header.Set("Content-Type", "application/json")
+	resp1 := httptest.NewRecorder()
+	router.ServeHTTP(resp1, req1)
+
+	if resp1.Code != http.StatusCreated {
+		t.Fatalf("expected status 201 Created, got %d", resp1.Code)
+	}
+
+	req2 := httptest.NewRequest("POST", "/api/v1/auth/signup", bytes.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	resp2 := httptest.NewRecorder()
+	router.ServeHTTP(resp2, req2)
+
+	if resp2.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d", resp2.Code)
+	}
+
+	var respBody map[string]interface{}
+	if err := json.NewDecoder(resp2.Body).Decode(&respBody); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+
+	msg, ok := respBody["message"].(string)
+	if !ok {
+		t.Fatalf("response body missing 'message' field")
+	}
+
+	if msg != "email already exists" {
+		t.Fatalf("expected error message 'email already exists', got '%s'", msg)
 	}
 }
 

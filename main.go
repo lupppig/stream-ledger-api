@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -42,7 +43,7 @@ func main() {
 		log.Printf("failed to perform migrations: %v", err)
 	}
 	// kafka setup
-	brokers := []string{"127.0.0.1:9092"}
+	brokers := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
 	prod, err := kafka.ConnectKafka(brokers...)
 
 	if err != nil {
