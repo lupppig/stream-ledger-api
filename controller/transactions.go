@@ -70,11 +70,13 @@ func (ru *Router) CreateTransactions(w http.ResponseWriter, r *http.Request) {
 		WalletID      int64  `json:"wallet_id"`
 		Entry         string `json:"entry"`
 		Amount        int64  `json:"amount"`
+		TransID       string `json:"trans_id"`
 	}{
 		TransactionID: trx.ID,
 		WalletID:      trx.WalletID,
 		Entry:         trx.Entry,
 		Amount:        trx.Amount,
+		TransID:       trx.TransID,
 	}
 	resp := utils.BuildResponse(http.StatusOK, "transaction successfully", resData, nil, nil)
 	resp.SuccessResponse(w)
