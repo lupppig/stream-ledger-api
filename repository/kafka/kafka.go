@@ -37,7 +37,7 @@ func ConnectKafka(brokersUrl ...string) (*Producer, error) {
 	if err != nil {
 		return nil, err
 	}
-	prod := &Producer{Prod: producer, Topic: "transaction"}
+	prod := &Producer{Prod: producer, Topic: "transactions"}
 
 	go func() {
 		for {
